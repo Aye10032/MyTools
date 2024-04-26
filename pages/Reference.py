@@ -35,8 +35,6 @@ def add():
         st.session_state['pmc'] = ''
         st.session_state['doi'] = ''
 
-        # st.rerun()
-
 
 def reset():
     st.session_state.reference_list = []
