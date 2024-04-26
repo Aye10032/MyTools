@@ -1,0 +1,9 @@
+[server]
+port = 8502
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showSidebarNavigation = false
+toolbarMode = "auto"
