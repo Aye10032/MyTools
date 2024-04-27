@@ -74,6 +74,17 @@ def anal_ml():
     st.session_state['nlm_text'] = ''
 
 
+def del_item():
+    index: int = st.session_state.get('delete_id')
+    ref_list: list = st.session_state.get('reference_list')
+
+    ref_list.pop(index)
+
+    yaml_str = yaml.dump(ref_list)
+    st.session_state.reference_text = yaml_str
+    st.session_state.reference_list = ref_list
+
+
 st.title("引用格式化")
 
 col1, col2 = st.columns([1, 1], gap="medium")
@@ -84,25 +95,42 @@ if 'reference_list' not in st.session_state:
 if 'reference_text' not in st.session_state:
     st.session_state.reference_text = ''
 
+# if 'delete_id' not in st.session_state:
+#     st.session_state.delete_id = -1
+
 with col1:
-    st.text_input('title', key='title')
+    with st.expander('manual'):
+        st.text_input('title', key='title')
 
-    col1_1, col1_2 = st.columns([1, 1], gap="small")
-    col1_1.text_input('pmid', key='pmid')
-    col1_2.text_input('pmc', key='pmc')
+        col1_1, col1_2 = st.columns([1, 1], gap="small")
+        col1_1.text_input('pmid', key='pmid')
+        col1_2.text_input('pmc', key='pmc')
 
-    st.text_input('doi', key='doi')
+        st.text_input('doi', key='doi')
 
-    col2_1, col2_2 = st.columns([1, 1], gap="small")
-    col2_1.button('add', use_container_width=True, type='primary', on_click=add)
-    col2_2.button('reset', use_container_width=True, on_click=reset)
+        col2_1, col2_2 = st.columns([1, 1], gap="small")
+        col2_1.button('add', use_container_width=True, type='primary', on_click=add)
+        col2_2.button('reset', use_container_width=True, on_click=reset)
 
     st.text_area('NLM', key='nlm_text', height=10)
     st.button('add', use_container_width=True, on_click=anal_ml)
     info_container = st.empty()
 
+    if len(st.session_state.get('reference_list')) > 0:
+        st.divider()
+
+        col3_1, col3_2 = st.columns([2, 1], gap='small')
+        col3_1.number_input(
+            'id',
+            min_value=0,
+            max_value=len(st.session_state.get('reference_list')) - 1,
+            key='delete_id',
+            label_visibility='collapsed'
+        )
+        col3_2.button('delete', type='primary', on_click=del_item)
+
 with col2:
     with st.container(height=486, border=True):
         st.write(st.session_state.get('reference_list'))
 
-st.code(st.session_state.reference_text, language='yaml')
+st.code(st.session_state.get('reference_text'), language='yaml')
