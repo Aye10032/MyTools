@@ -29,6 +29,20 @@ def re_format(origin_str: str) -> str:
         ])
         new_str = new_str.replace(match, new_ref)
 
+    matches = re.findall(r'\[\s*\d+(?:-\s*\d+)*]', new_str)
+
+    for match in matches:
+        match_str: str = match
+        match_str = match_str.replace('[', '').replace(']', '')
+        a = int(match_str.split('-')[0].strip())
+        b = int(match_str.split('-')[-1].strip())
+
+        new_ref = ''.join([
+            f'[^{i}]'
+            for i in range(a, b + 1)
+        ])
+        new_str = new_str.replace(match, new_ref)
+
     return new_str
 
 
