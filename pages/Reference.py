@@ -1,7 +1,15 @@
+import random
+from typing import Dict, Any
+
+import requests
 import streamlit as st
 import yaml
+from loguru import logger
 
 from ui.Component import side_bar_links
+from bs4 import BeautifulSoup
+
+from utils.Decorator import retry
 
 st.set_page_config(
     page_title='工具箱',
@@ -41,37 +49,109 @@ def reset():
     st.session_state.reference_text = ''
 
 
-def anal_ml():
-    nlm_str: str = st.session_state.get('nlm_text')
-    nlm_list = nlm_str.split('.', 4)
-    title = nlm_list[1]
-    id_list = nlm_list[-1].split('; ')
-    if len(id_list) > 1:
-        pmc = id_list[-1]
-    else:
-        pmc = ''
-    base_list = id_list[0].split('. ')
-    doi = base_list[0]
-    pmid = base_list[1]
+# def anal_ml():
+#     nlm_str: str = st.session_state.get('nlm_text')
+#     nlm_list = nlm_str.split('.', 4)
+#     title = nlm_list[1]
+#     id_list = nlm_list[-1].split('; ')
+#     if len(id_list) > 1:
+#         pmc = id_list[-1]
+#     else:
+#         pmc = ''
+#     base_list = id_list[0].split('. ')
+#     doi = base_list[0]
+#     pmid = base_list[1]
+#
+#     _data = {
+#         'title': title[1:] if title.startswith(' ') else title,
+#         'pmid': pmid.replace('PMID:', '').replace(' ', ''),
+#         'pmc': pmc.replace('PMCID:', '').replace(' ', '').replace('.', ''),
+#         'doi': doi.replace('doi:', '').replace(' ', ''),
+#     }
+#
+#     ref_list: list = st.session_state.get('reference_list')
+#
+#     if _data in ref_list:
+#         st.toast('already exist')
+#     else:
+#         ref_list.append(_data)
+#         st.session_state.reference_list = ref_list
+#         yaml_str = yaml.dump(ref_list)
+#         st.session_state.reference_text = yaml_str
+#
+#     st.session_state['nlm_text'] = ''
 
-    _data = {
-        'title': title[1:] if title.startswith(' ') else title,
-        'pmid': pmid.replace('PMID:', '').replace(' ', ''),
-        'pmc': pmc.replace('PMCID:', '').replace(' ', '').replace('.', ''),
-        'doi': doi.replace('doi:', '').replace(' ', ''),
+
+@retry(delay=random.uniform(2.0, 5.0))
+def get_data():
+    term: str = st.session_state.get('term_text')
+    term = term.replace('\r', ' ').replace('\n', '')
+    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={term}&retmode=xml"
+
+    payload = {}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
 
-    ref_list: list = st.session_state.get('reference_list')
+    response = requests.request("GET", url, headers=headers, data=payload)
 
-    if _data in ref_list:
-        st.toast('already exist')
-    else:
-        ref_list.append(_data)
-        st.session_state.reference_list = ref_list
-        yaml_str = yaml.dump(ref_list)
-        st.session_state.reference_text = yaml_str
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'xml')
 
-    st.session_state['nlm_text'] = ''
+        count: int = int(soup.find('Count').text) if soup.find('Count') else 0
+
+        if count > 0:
+            pmid = soup.find('IdList').find_all('Id')[0].text
+
+            _data = __get_info(pmid)
+
+            ref_list: list = st.session_state.get('reference_list')
+
+            if _data in ref_list:
+                st.toast('already exist')
+            else:
+                ref_list.append(_data)
+                st.session_state.reference_list = ref_list
+                yaml_str = yaml.dump(ref_list)
+                st.session_state.reference_text = yaml_str
+
+            st.session_state['nlm_text'] = ''
+
+
+@retry(delay=random.uniform(2.0, 5.0))
+def __get_info(pmid: str) -> Dict[str, Any]:
+    url = f'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&retmode=xml'
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+
+    response = requests.request("GET", url, headers=headers, timeout=10)
+
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'xml')
+
+        title = soup.find('Article').find('ArticleTitle').text if soup.find('Article') else None
+
+        doi_block = soup.find('ArticleIdList').find('ArticleId', {'IdType': 'doi'})
+        if doi_block:
+            doi = doi_block.text
+        else:
+            doi = ''
+            logger.warning('DOI not found')
+
+        pmc_block = soup.find('ArticleIdList').find('ArticleId', {'IdType': 'pmc'})
+        if pmc_block:
+            pmc = pmc_block.text.replace('PMC', '')
+        else:
+            pmc = ''
+
+        return {
+            'title': title,
+            'pmid': pmid,
+            'pmc': pmc,
+            'doi': doi
+        }
 
 
 def del_item():
@@ -80,7 +160,7 @@ def del_item():
 
     ref_list.pop(index)
 
-    yaml_str = yaml.dump(ref_list)
+    yaml_str = yaml.dump(ref_list, width=999)
     st.session_state.reference_text = yaml_str
     st.session_state.reference_list = ref_list
 
@@ -94,9 +174,6 @@ if 'reference_list' not in st.session_state:
 
 if 'reference_text' not in st.session_state:
     st.session_state.reference_text = ''
-
-# if 'delete_id' not in st.session_state:
-#     st.session_state.delete_id = -1
 
 with col1:
     with st.expander('manual'):
@@ -112,9 +189,8 @@ with col1:
         col2_1.button('add', use_container_width=True, type='primary', on_click=add)
         col2_2.button('reset', use_container_width=True, on_click=reset)
 
-    st.text_area('NLM', key='nlm_text', height=10)
-    st.button('add', use_container_width=True, on_click=anal_ml)
-    info_container = st.empty()
+    st.text_area('Search', key='term_text', height=10)
+    st.button('add', use_container_width=True, on_click=get_data)
 
     if len(st.session_state.get('reference_list')) > 0:
         st.divider()
