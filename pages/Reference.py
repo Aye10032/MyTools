@@ -26,7 +26,7 @@ def add():
 
     _data = {
         'title': st.session_state.get('title'),
-        'pmid': st.session_state.get('pmid').replace(' ', ''),
+        'pmid': st.session_state.get('pmid').replace('PMID:', '').replace(' ', ''),
         'pmc': st.session_state.get('pmc').replace('PMCID:', '').replace(' ', ''),
         'doi': st.session_state.get('doi').replace('DOI:', '').replace(' ', ''),
     }
@@ -82,40 +82,22 @@ def reset():
 #     st.session_state['nlm_text'] = ''
 
 
-@retry(delay=random.uniform(2.0, 5.0))
 def get_data():
     term: str = st.session_state.get('term_text')
     term = term.replace('\r', ' ').replace('\n', '')
-    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={term}&retmode=xml"
+    _data = __get_info(term)
 
-    payload = {}
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
+    ref_list: list = st.session_state.get('reference_list')
 
-    response = requests.request("GET", url, headers=headers, data=payload)
+    if _data in ref_list:
+        st.toast('already exist')
+    else:
+        ref_list.append(_data)
+        st.session_state.reference_list = ref_list
+        yaml_str = yaml.dump(ref_list)
+        st.session_state.reference_text = yaml_str
 
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'xml')
-
-        count: int = int(soup.find('Count').text) if soup.find('Count') else 0
-
-        if count > 0:
-            pmid = soup.find('IdList').find_all('Id')[0].text
-
-            _data = __get_info(pmid)
-
-            ref_list: list = st.session_state.get('reference_list')
-
-            if _data in ref_list:
-                st.toast('already exist')
-            else:
-                ref_list.append(_data)
-                st.session_state.reference_list = ref_list
-                yaml_str = yaml.dump(ref_list)
-                st.session_state.reference_text = yaml_str
-
-            st.session_state['nlm_text'] = ''
+    st.session_state['nlm_text'] = ''
 
 
 @retry(delay=random.uniform(2.0, 5.0))
@@ -189,11 +171,13 @@ with col1:
         col2_1.button('add', use_container_width=True, type='primary', on_click=add)
         col2_2.button('reset', use_container_width=True, on_click=reset)
 
-    st.text_area('Search', key='term_text', height=10)
+    st.text_input('Search', key='term_text')
     st.button('add', use_container_width=True, on_click=get_data)
 
     if len(st.session_state.get('reference_list')) > 0:
         st.divider()
+
+        st.write('共有', len(st.session_state.get('reference_list')), '条引用')
 
         col3_1, col3_2 = st.columns([2, 1], gap='small')
         col3_1.number_input(
