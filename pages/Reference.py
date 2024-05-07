@@ -94,10 +94,10 @@ def get_data():
     else:
         ref_list.append(_data)
         st.session_state.reference_list = ref_list
-        yaml_str = yaml.dump(ref_list)
+        yaml_str = yaml.dump(ref_list, width=999)
         st.session_state.reference_text = yaml_str
 
-    st.session_state['nlm_text'] = ''
+    st.session_state['term_text'] = ''
 
 
 @retry(delay=random.uniform(2.0, 5.0))
