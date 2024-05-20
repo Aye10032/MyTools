@@ -37,7 +37,8 @@ def get_translate_and_conclude(question: str, step: int):
             [
                 SystemMessage("You are an AI academic assistant and should answer user questions rigorously."),
                 ("human",
-                 "首先，将这段文本**翻译为中文**，不要漏句。对于所有的特殊符号和latex代码，请保持原样不要改变:\n{question}"),
+                 "你将收到一个论文的片段。首先，将这段文本以学术风格**翻译为中文**，不要漏句。对于所有的特殊符号和latex代码，请保持原样不要改变。"
+                 "对于文中一些显得与上下文突兀的数字，很大可能是引用文献，请使用latex语法将它们表示为一个上标，并使用美元符号包围，如$^2$。这是你要翻译的文献片段:\n{question}"),
             ]
         )
     elif step == 1:
