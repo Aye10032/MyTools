@@ -107,6 +107,7 @@ if prompt := st.chat_input():
     st.session_state.translate_messages = []
     if st.session_state.get('trans_reformat'):
         prompt = prompt.replace("\n", " ").replace("\r", "")
+    prompt = prompt.replace('$', r'\$')
 
     chat_container.chat_message("human").write(prompt)
     st.session_state.translate_messages.append({'role': 'user', 'content': prompt})
@@ -129,6 +130,7 @@ if prompt := st.chat_input():
             markdown_text = f"""{prompt}\t\r\n{translate_result}\t\r\n> {conclusion_result}"""
         else:
             markdown_text = f"""{prompt}\n\n{translate_result}\n\n\\tbox{{ {conclusion_result} }}"""
+            markdown_text = markdown_text.replace('%', r'\%')
         st.session_state.markdown_text = markdown_text
     else:
         markdown_text = f"""{prompt}\t\r\n{translate_result}"""
