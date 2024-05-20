@@ -52,21 +52,22 @@ def get_translate_and_conclude(question: str, step: int):
     with open('/home/aye/Service/MyTools/config.yaml', 'r') as f:
         data = yaml.load(f.read(), yaml.FullLoader)
     http_client = httpx.Client(proxies='http://127.0.0.1:7890')
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo",
-                     http_client=http_client,
-                     temperature=0,
-                     openai_api_key=data['llm']['openai']['api_key'])
+    llm = ChatOpenAI(
+        model_name="gpt-3.5-turbo",
+        http_client=http_client,
+        temperature=0,
+        openai_api_key=data['llm']['openai']['api_key'],
+        streaming=True
+    )
 
     chain = _prompt | llm
 
     if step == 0:
-        with st.spinner('正在翻译...'):
-            result = chain.invoke({"question": question})
+        llm_result = chain.stream({"question": question})
     else:
-        with st.spinner('正在总结文本...'):
-            result = chain.invoke({"question": question})
+        llm_result = chain.stream({"question": question})
 
-    return result
+    return llm_result
 
 
 col1, col2 = st.columns([1, 1], gap="medium")
@@ -100,24 +101,24 @@ if prompt := st.chat_input():
     chat_container.chat_message("human").write(prompt)
     st.session_state.translate_messages.append({'role': 'user', 'content': prompt})
 
-    response = get_translate_and_conclude(prompt, 0).content
-    chat_container.chat_message("ai").write(response)
-    st.session_state.translate_messages.append({'role': 'assistant', 'content': response})
+    response = get_translate_and_conclude(prompt, 0)
+    translate_result = chat_container.chat_message("ai").write_stream(response)
+    st.session_state.translate_messages.append({'role': 'assistant', 'content': translate_result})
 
     if st.session_state.get('trans_conclusion'):
         query = "接下来，请用两到四句话总结一下这段文本的内容"
         chat_container.chat_message("human").write(query)
         st.session_state.translate_messages.append({'role': 'user', 'content': query})
 
-        conclusion = get_translate_and_conclude(query, 1).content
-        logger.info(f"(conclude): {conclusion}")
-        chat_container.chat_message("ai").write(conclusion)
-        st.session_state.translate_messages.append({'role': 'assistant', 'content': conclusion})
+        response = get_translate_and_conclude(query, 1)
+        conclusion_result = chat_container.chat_message("ai").write_stream(response)
+        logger.info(f"(conclude): {conclusion_result}")
+        st.session_state.translate_messages.append({'role': 'assistant', 'content': conclusion_result})
 
-        markdown_text = f"""{prompt}\t\r\n{response}\t\r\n> {conclusion}"""
+        markdown_text = f"""{prompt}\t\r\n{translate_result}\t\r\n> {conclusion_result}"""
         st.session_state.markdown_text = markdown_text
     else:
-        markdown_text = f"""{prompt}\t\r\n{response}"""
+        markdown_text = f"""{prompt}\t\r\n{translate_result}"""
         st.session_state.markdown_text = markdown_text
 
     st.rerun()
