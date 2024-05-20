@@ -24,6 +24,12 @@ with st.sidebar:
     st.toggle('去除换行', key='trans_reformat')
     st.toggle('总结', key='trans_conclusion')
 
+    st.toggle('输出格式', key='trans_text_mode')
+    if st.session_state.get('trans_text_mode'):
+        st.caption('markdown')
+    else:
+        st.caption('latex')
+
 
 def get_translate_and_conclude(question: str, step: int):
     if step == 0:
@@ -90,7 +96,10 @@ with col2:
     if st.session_state.markdown_text != '':
         with st.container(height=520, border=True):
             st.markdown(st.session_state.markdown_text)
-        st.code(st.session_state.markdown_text, language='markdown')
+        if st.session_state.get('trans_text_mode'):
+            st.code(st.session_state.markdown_text, language='markdown')
+        else:
+            st.code(st.session_state.markdown_text, language='latex')
 
 if prompt := st.chat_input():
     logger.info(f'[translate]: {prompt}')
@@ -115,7 +124,10 @@ if prompt := st.chat_input():
         logger.info(f"(conclude): {conclusion_result}")
         st.session_state.translate_messages.append({'role': 'assistant', 'content': conclusion_result})
 
-        markdown_text = f"""{prompt}\t\r\n{translate_result}\t\r\n> {conclusion_result}"""
+        if st.session_state.get('trans_text_mode'):
+            markdown_text = f"""{prompt}\t\r\n{translate_result}\t\r\n> {conclusion_result}"""
+        else:
+            markdown_text = f"""{prompt}\n\n{translate_result}\n\n\\tbox{{ {conclusion_result} }}"""
         st.session_state.markdown_text = markdown_text
     else:
         markdown_text = f"""{prompt}\t\r\n{translate_result}"""
