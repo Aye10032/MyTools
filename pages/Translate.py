@@ -103,10 +103,11 @@ with col2:
             st.code(st.session_state.markdown_text, language='latex')
 
 if prompt := st.chat_input():
-    logger.info(f'[translate]: {prompt}')
     st.session_state.translate_messages = []
     if st.session_state.get('trans_reformat'):
         prompt = prompt.replace("\n", " ").replace("\r", "")
+
+    logger.info(f'[translate]: {prompt}')
     prompt = prompt.replace('$', r'\$')
 
     chat_container.chat_message("human").write(prompt)
